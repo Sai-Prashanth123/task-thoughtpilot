@@ -1,0 +1,6 @@
+{
+  "actorId": "apidojo/tweet-scraper",
+  "fallbackActorId": "kaitoeasyapi/twitter-x-data-tweet-scraper-pay-per-result-cheapest",
+  "pricingNotes": "Pay-per-result: $0.40 per 1,000 tweets as of the plan's build date (verify at https://apify.com/apidojo/tweet-scraper before relying on it). Each query is billed a minimum of 50 results even if fewer are returned -- factor this into small daily-monitor queries.",
+  "notes": "Actor accepts searchTerms (advanced search syntax, e.g. 'from:<handle>'), plus separate start/end date fields that apply to searchTerms queries. twitterHandles/author fields exist but date filters do NOT apply to them, so date-bounded scans must use searchTerms + start/end, not twitterHandles."
+}
