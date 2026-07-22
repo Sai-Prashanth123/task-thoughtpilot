@@ -72,7 +72,9 @@ def main():
     args = ap.parse_args()
 
     with open(args.tweets_file, "r", encoding="utf-8") as f:
-        tweets = json.load(f)
+        data = json.load(f)
+    # Accept both a bare tweet array and the n8n fetcher's corpus wrapper {handle, range, tweets: [...]}
+    tweets = data.get("tweets", []) if isinstance(data, dict) else data
 
     if not tweets:
         print(json.dumps({"tweet_count": 0, "warning": "no tweets in corpus"}))

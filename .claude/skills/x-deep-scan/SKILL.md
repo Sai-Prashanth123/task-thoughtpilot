@@ -13,18 +13,19 @@ Also accepts bare positional args in the same order if the user doesn't use `key
 
 1. **Parse and validate inputs.** Strip any `@` or full URL down to the bare handle. Confirm `start_date < end_date` and `end_date` is not far in the future (if it is, note that results will only cover up to today).
 
-2. **Check `APIFY_TOKEN`.** Run `printenv APIFY_TOKEN` (or `echo %APIFY_TOKEN%` on Windows cmd, but this project uses git-bash-style `Bash` so `printenv` is fine). If unset, tell the user to set it (see `docs/triggering-a-scan.md`) and stop -- do not proceed without it, and never ask the user to paste the token into chat.
+2. **Fetch tweets via the n8n "X Deep Scan Fetcher" workflow** (id `FVvkLxg58JPHYqus` on the connected n8n.cloud instance -- the Apify token lives only in n8n's credential store, never locally). Trigger it through the n8n MCP connection:
+   - `execute_workflow` with `inputs: {type: "form", formData: {handle, start_date, end_date}}`, `executionMode: "manual"`.
+   - Poll `get_execution` until success. The workflow chunks the range into ~30-day windows, calls the Apify actor per chunk, dedupes, and commits the corpus to `raw-scans/<handle>_<start>_<end>.json` in the GitHub repo.
+   - Then `git pull` to bring the corpus local. Check the corpus's `warnings` array -- carry any chunk-failure or truncation warnings into the final report rather than silently dropping them.
+   - Fallback: if the user has set `APIFY_TOKEN` locally, `scripts/fetch_tweets.py` (Python) does the same fetch locally into `raw/` instead.
 
-3. **Fetch tweets.** Run:
-   ```
-   python .claude/skills/x-deep-scan/scripts/fetch_tweets.py --handle <handle> --start <start_date> --end <end_date> --repo-root .
-   ```
-   This chunks the range into ~30-day windows, calls the Apify actor from `config/apify_actor.json` for each chunk, and writes raw JSON + a manifest under `raw/<handle>/<start_date>_<end_date>/`. Read the manifest afterward -- if any chunk's `possibly_truncated` is true or `warnings` is non-empty, carry that caveat into the final report rather than silently dropping it. If a chunk failed outright, report_generation still proceeds with whatever data succeeded, and the failure is called out explicitly.
+3. **Sanity-check the corpus.** If `tweet_count` is 0 or every item is `{noResults: true}`, the Apify account is likely on the free plan (this actor gates free accounts) -- stop and tell the user; do not fabricate data.
 
 4. **Compute deterministic stats.** Run:
    ```
-   python .claude/skills/x-deep-scan/scripts/compute_stats.py --tweets-file raw/<handle>/<start_date>_<end_date>/tweets.json
+   node .claude/skills/x-deep-scan/scripts/compute_stats.js --tweets-file raw-scans/<handle>_<start_date>_<end_date>.json
    ```
+   (`scripts/compute_stats.py` is an equivalent Python implementation if Node is unavailable. Both accept a bare tweet array or the fetcher's `{tweets: [...]}` wrapper.)
    This is plain arithmetic (cadence, length distribution, engagement mean/median/stdev, top-10 by likes, cheap format flags, posting-time histograms) -- treat its output as ground truth for anything numeric in the report. Do not recompute these by eye.
 
 5. **Do the qualitative read yourself.** Read the tweet text corpus (`tweets.json`) directly and reason over it -- this is the part scripts can't do:
