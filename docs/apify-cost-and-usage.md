@@ -20,6 +20,10 @@ Each watchlist account gets one small query per day (yesterday's tweets, `maxIte
 
 Both the on-demand scans (run occasionally, per account) and the daily monitor (2 accounts, ~$1.20/month) fit comfortably inside Apify's **$5/month** tier. Move to the **$29/month** tier only if the watchlist grows to dozens of accounts, monitoring frequency increases (e.g. hourly), or on-demand scans start covering many-month ranges across many accounts regularly.
 
-## Where the real numbers come from
+## Measured so far
 
-After the first live scan and the first live daily-monitor run, replace the worked examples above with the actual charges shown in the Apify Console (Runs -> the specific run -> Cost) so this doc reflects measured cost, not just an estimate.
+The Apify account used to build this (a brand-new account) is currently on the **FREE plan**, which caps `apidojo/tweet-scraper` at 10 placeholder results per query regardless of the search -- this blocks real tweet data entirely, it isn't a pricing issue. Measured cost of these capped/empty runs: **$0.004 per call** (9 test calls totaled $0.036), which gives a sense of the floor cost per Apify call independent of result volume. Real per-1,000-tweet costs can't be measured until the account is upgraded to the $5 Starter plan (or higher) and a real scan pulls actual tweets -- do that first, then replace the worked examples above with the actual charges shown in the Apify Console (Runs -> the specific run -> Cost) so this doc reflects measured cost, not just an estimate.
+
+## Where this applies
+
+Both the legacy GitHub-backed pipeline and the newer self-contained n8n pipeline (`X Deep Scan` / `X Daily Monitor`, Data-Table backed) use the same Apify actor and the same cost profile described above -- upgrading the plan unblocks real data for both.

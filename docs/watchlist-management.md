@@ -1,30 +1,23 @@
 # Managing the watchlist
 
-`watchlist.json` at the repo root is the single source of truth. The n8n daily monitor re-reads it from GitHub on every run -- there is nothing to configure on the n8n side when the list changes.
-
-```json
-[
-  { "handle": "romanbuildsaas", "display_name": "Romàn Czerny", "added_date": "2026-07-22" }
-]
-```
+**Primary system (self-contained in n8n):** the `Watchlist` Data Table inside the n8n instance is the single source of truth. `X Daily Monitor` reads it fresh on every run -- there is nothing to configure elsewhere.
 
 ## Add a profile
 
-1. Add an entry to the array in `watchlist.json` (handle without `@`, a display name, today's date).
-2. Commit and push:
-   ```
-   git add watchlist.json
-   git commit -m "watchlist: add @<handle>"
-   git push
-   ```
-3. Run `/x-deep-scan handle:<handle> start_date:... end_date:...` once for the new account. Until this runs, the daily monitor has no `baselines/<handle>.json` for it and will show "baseline missing" for that handle instead of computing outliers -- this is expected, not an error.
+Two ways:
+- **Automatic:** run `X Deep Scan` for the handle (see `triggering-a-scan.md`). It upserts a `Watchlist` row as part of finishing, so scanning an account also starts monitoring it.
+- **Manual:** open the `Watchlist` Data Table from the n8n left sidebar (Data Tables) and add a row: `handle` (no `@`), `display_name`, `added_date`. Note: a manually-added handle has no `Baselines` row until a deep scan runs for it -- the monitor will show `alert_type: "no_baseline"` for it instead of computing outliers, which is expected, not an error.
 
 ## Remove a profile
 
-1. Delete the entry from `watchlist.json`.
-2. Optionally delete `baselines/<handle>.json` too (not required -- an orphaned baseline file is harmless, just unused).
-3. Commit and push as above.
+Delete its row from the `Watchlist` Data Table. Optionally delete its `Baselines` row too (not required -- an orphaned baseline row is harmless, just unused).
 
 ## Refreshing a baseline
 
-Baselines are never updated automatically by the daily monitor -- only re-running `/x-deep-scan` for an account overwrites `baselines/<handle>.json`. Re-run it periodically (e.g. monthly, or whenever the account's style visibly shifts) so "what's normal" stays current. This is a deliberate design choice: automatic rolling baselines would silently drift and make it harder to reason about why something got flagged.
+Baselines are never updated automatically by the daily monitor -- only re-running `X Deep Scan` for an account overwrites its `Baselines` row. Re-run it periodically (e.g. monthly, or whenever the account's style visibly shifts) so "what's normal" stays current. This is deliberate: automatic rolling baselines would silently drift and make it harder to reason about why something got flagged.
+
+---
+
+## Legacy system (GitHub-backed)
+
+An earlier, GitHub-backed version of this pipeline (`watchlist.json` in this repo + the `X Watchlist Daily Monitor` / `X Deep Scan Fetcher` n8n workflows) is still live and functioning, publishing a dashboard to GitHub Pages. It predates the self-contained n8n version above and is kept only as a working secondary artifact -- the Data-Table-based system is the one intended for handoff. Its own watchlist management is documented inline in `watchlist.json`'s original instructions (edit the JSON array, commit, push).
