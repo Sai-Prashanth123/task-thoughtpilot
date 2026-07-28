@@ -17,6 +17,10 @@ import urllib.error
 import urllib.request
 
 APIFY_BASE = "https://api.apify.com/v2"
+ACTOR_PROFILE_KEYS = {
+    "configured": "actorId",
+    "xquik": "xquikTweetActorId",
+}
 
 
 def load_actor_config(repo_root):
@@ -27,6 +31,24 @@ def load_actor_config(repo_root):
 
 def actor_url_id(actor_id):
     return actor_id.replace("/", "~")
+
+
+def x_handle(value):
+    handle = value.removeprefix("@").strip()
+    if (
+        not handle
+        or len(handle) > 15
+        or not all(c.isascii() and (c.isalnum() or c == "_") for c in handle)
+    ):
+        raise argparse.ArgumentTypeError("handle must be 1-15 letters, numerals, or underscores")
+    return handle
+
+
+def positive_int(value):
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("value must be a positive integer")
+    return parsed
 
 
 def daterange_chunks(start, end, chunk_days):
@@ -40,9 +62,17 @@ def daterange_chunks(start, end, chunk_days):
 
 
 def run_actor_sync(actor_id, token, payload, timeout=300):
-    url = f"{APIFY_BASE}/acts/{actor_url_id(actor_id)}/run-sync-get-dataset-items?token={token}"
+    url = f"{APIFY_BASE}/acts/{actor_url_id(actor_id)}/run-sync-get-dataset-items"
     data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = resp.read().decode("utf-8")
@@ -52,21 +82,56 @@ def run_actor_sync(actor_id, token, payload, timeout=300):
         raise RuntimeError(f"Apify run failed ({e.code}): {err_body[:1000]}") from e
 
 
+def build_tweet_payload(actor_profile, handle, start, end, max_items):
+    common = {
+        "searchTerms": [f"from:{handle}"],
+        "maxItems": max_items,
+    }
+    if actor_profile == "xquik":
+        return {
+            **common,
+            "mode": "search",
+            "since": start.isoformat(),
+            "until": end.isoformat(),
+            "maxItemsPerTarget": max_items,
+            "outputVariant": "rich",
+            "fieldStyle": "camelCase",
+            "outputPreset": "flat",
+            "includeSearchTerms": True,
+        }
+    return {
+        **common,
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "sort": "Latest",
+    }
+
+
 def normalize_id(item):
     return str(item.get("id") or item.get("tweetId") or item.get("url") or item.get("twitterUrl"))
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--handle", required=True)
+    ap.add_argument("--handle", required=True, type=x_handle)
     ap.add_argument("--start", required=True, help="YYYY-MM-DD")
     ap.add_argument("--end", required=True, help="YYYY-MM-DD")
     ap.add_argument("--repo-root", default=os.getcwd())
-    ap.add_argument("--chunk-days", type=int, default=30)
-    ap.add_argument("--max-items", type=int, default=1000, help="ceiling per chunk")
+    ap.add_argument("--chunk-days", type=positive_int, default=30)
+    ap.add_argument("--max-items", type=positive_int, default=1000, help="ceiling per chunk")
+    ap.add_argument(
+        "--actor-profile",
+        choices=sorted(ACTOR_PROFILE_KEYS),
+        default="configured",
+        help="configured keeps the existing actor; xquik uses Xquik X Tweet Scraper",
+    )
     args = ap.parse_args()
+    if args.max_items > 5000:
+        ap.error("--max-items must not exceed 5000")
+    if args.chunk_days > 365:
+        ap.error("--chunk-days must not exceed 365")
 
-    handle = args.handle.lstrip("@").strip()
+    handle = args.handle
     token = os.environ.get("APIFY_TOKEN")
     if not token:
         print("ERROR: APIFY_TOKEN not set in environment", file=sys.stderr)
@@ -81,7 +146,7 @@ def main():
         print(f"WARNING: end_date {end_d} is in the future; results will only cover up to today", file=sys.stderr)
 
     actor_cfg = load_actor_config(args.repo_root)
-    actor_id = actor_cfg["actorId"]
+    actor_id = actor_cfg[ACTOR_PROFILE_KEYS[args.actor_profile]]
 
     out_dir = os.path.join(args.repo_root, "raw", handle, f"{args.start}_{args.end}")
     os.makedirs(out_dir, exist_ok=True)
@@ -91,20 +156,21 @@ def main():
         "handle": handle,
         "requested_range": {"start": args.start, "end": args.end},
         "actor_id": actor_id,
-        "generated_at": dt.datetime.utcnow().isoformat() + "Z",
+        "generated_at": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
+        "actor_profile": args.actor_profile,
         "chunks": [],
         "warnings": [],
     }
 
     all_items = {}
     for i, (c_start, c_end) in enumerate(chunks, start=1):
-        payload = {
-            "searchTerms": [f"from:{handle}"],
-            "start": c_start.isoformat(),
-            "end": c_end.isoformat(),
-            "sort": "Latest",
-            "maxItems": args.max_items,
-        }
+        payload = build_tweet_payload(
+            args.actor_profile,
+            handle,
+            c_start,
+            c_end,
+            args.max_items,
+        )
         print(f"[{i}/{len(chunks)}] fetching {handle} {c_start} -> {c_end} ...", file=sys.stderr)
         try:
             items = run_actor_sync(actor_id, token, payload)

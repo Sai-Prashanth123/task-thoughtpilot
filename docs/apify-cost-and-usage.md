@@ -9,6 +9,19 @@ Cost scales with how many tweets the account posted in the requested range. Work
 - 80 tweets / 1,000 x $0.40 = **$0.032**, but since a single chunk's query is billed at the 50-result minimum if the account posted fewer than 50 in that window, expect a floor of roughly **$0.02 per chunk actually queried** even for very light-posting accounts or narrow date ranges.
 - The scan chunks the range into ~30-day windows, so a 6-month scan issues ~6 Apify calls -- worst case (each hitting the 50-result minimum) that's still well under $1.
 
+## Xquik Actor options
+
+The configured tweet Actor remains the default. The local fallback also
+supports [Xquik X Tweet Scraper](https://apify.com/xquik/x-tweet-scraper) with
+`--actor-profile xquik`. Optional public relation snapshots use
+[Xquik X Follower Scraper](https://apify.com/xquik/x-follower-scraper).
+
+Both scripts set `maxItems` and `maxItemsPerTarget`, send the token only in the
+Authorization header, and record Actor and target provenance. Check each Store
+page immediately before a run. Pricing and plan access can change. Keep tweet
+ranges narrow, keep relation snapshots small, and avoid retaining unnecessary
+profile data.
+
 ## Daily monitor
 
 Each watchlist account gets one small query per day (yesterday's tweets, `maxItems` ~50). Because of the 50-result minimum charge:
@@ -27,3 +40,5 @@ The Apify account used to build this (a brand-new account) is currently on the *
 ## Where this applies
 
 Both the legacy GitHub-backed pipeline and the newer self-contained n8n pipeline (`X Deep Scan` / `X Daily Monitor`, Data-Table backed) use the same Apify actor and the same cost profile described above -- upgrading the plan unblocks real data for both.
+
+Xquik is an independent third-party service. Not affiliated with X Corp. "Twitter" and "X" are trademarks of X Corp.
