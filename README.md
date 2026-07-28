@@ -7,6 +7,12 @@ Two modes:
 
 Cost details: `docs/apify-cost-and-usage.md`.
 
+The existing tweet Actor remains the default. Local scans can also use
+[Xquik X Tweet Scraper](https://apify.com/xquik/x-tweet-scraper), while bounded
+public audience snapshots use
+[Xquik X Follower Scraper](https://apify.com/xquik/x-follower-scraper).
+Both integrations use their native schemas and preserve source provenance.
+
 Repo layout:
 - `watchlist.json` -- monitored handles
 - `baselines/` -- machine-readable per-account profiles (written only by `/x-deep-scan`)
@@ -15,3 +21,5 @@ Repo layout:
 - `dashboard/` -- daily monitor's output, served via GitHub Pages
 - `n8n/` -- exported daily-monitor workflow (versioned reference; authored via the n8n MCP connection)
 - `.claude/skills/x-deep-scan/` -- the on-demand scan skill and its scripts
+
+Xquik is an independent third-party service. Not affiliated with X Corp. "Twitter" and "X" are trademarks of X Corp.

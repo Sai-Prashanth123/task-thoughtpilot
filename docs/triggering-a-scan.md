@@ -27,3 +27,9 @@ The Apify account this was built against is on the **free plan**, which caps the
 ## Legacy system (GitHub-backed)
 
 An earlier version used a Claude Code skill (`/x-deep-scan` slash command, `.claude/skills/x-deep-scan/`) that fetches via the `X Deep Scan Fetcher` n8n workflow and does the qualitative write-up locally in Claude Code, committing reports/baselines to this GitHub repo. It's still functional but requires a local Claude Code session and GitHub access, so it's not the recommended path for handing this off to someone else.
+
+The local tweet fallback preserves the configured Actor. Add
+`--actor-profile xquik` to use
+[Xquik X Tweet Scraper](https://apify.com/xquik/x-tweet-scraper). For a bounded
+public relation snapshot, use `fetch_followers.py`; it calls
+[Xquik X Follower Scraper](https://apify.com/xquik/x-follower-scraper).
